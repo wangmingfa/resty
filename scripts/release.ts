@@ -157,7 +157,7 @@ if (existingTags.split('\n').includes(tag)) {
 // 打印发布信息并确认
 console.log('\n─────────────────────────────────')
 console.log(`  类型     : ${isCanary ? 'canary' : 'stable'}`)
-console.log(`  版本     : ${newVersion}${newVersion !== currentVersion ? ` (原 ${currentVersion})` : ''}`)
+console.log(`  版本     : ${newVersion}${!firstRelease && newVersion !== currentVersion ? ` (原 ${currentVersion})` : ''}`)
 console.log(`  Tag      : ${tag}`)
 console.log(`  分支     : ${execSync('git branch --show-current', { encoding: 'utf-8' }).trim()}`)
 console.log('─────────────────────────────────\n')

@@ -22,7 +22,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      'electrobun/view': resolve(__dirname, 'node_modules/electrobun/dist-macos-arm64/api/browser/index.ts'),
+      'electrobun/view': resolve(__dirname, 'node_modules/electrobun/dist/api/browser/index.ts'),
       // 避免 Vite 尝试解析 bun 专用模块
       'electrobun/bun': resolve(__dirname, 'src/mainview/stubs/electrobun-bun-stub.ts'),
     },
