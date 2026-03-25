@@ -6,6 +6,9 @@ on:
       - 'v*.*.*'
       - 'v*.*.*-canary.*'
 
+permissions:
+  contents: write
+
 jobs:
   build:
     strategy:
