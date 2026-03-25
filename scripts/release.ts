@@ -58,15 +58,18 @@ async function promptReleaseType(): Promise<boolean> {
   return result === 'canary'
 }
 
+const RETAG_SENTINEL = '__retag__'
+
 // 交互：选择版本升级
 async function promptVersion(current: string): Promise<string> {
   const { major, minor, patch } = bumpVersions(current)
   const result = await select({
     message: `选择版本升级方式（当前：${current}）`,
     choices: [
-      { name: `patch  ${current} → ${patch}`, value: patch },
-      { name: `minor  ${current} → ${minor}`, value: minor },
-      { name: `major  ${current} → ${major}`, value: major },
+      { name: `patch   ${current} → ${patch}`, value: patch },
+      { name: `minor   ${current} → ${minor}`, value: minor },
+      { name: `major   ${current} → ${major}`, value: major },
+      { name: `retag   重新发布已有 tag`, value: RETAG_SENTINEL },
     ],
   })
   return result
@@ -116,17 +119,58 @@ const isCanary = args.includes('--canary') || args.includes('--stable')
 const currentVersion = getCurrentVersion()
 
 // 检查是否存在任何已发布的 tag
-const hasAnyTag = execSync('git tag --list', { encoding: 'utf-8' }).trim().length > 0
+const allTagsRaw = execSync('git tag --list', { encoding: 'utf-8' }).trim()
+const hasAnyTag = allTagsRaw.length > 0
 const firstRelease = !hasAnyTag
 
 let newVersion: string
+let isRetag = false
+let retagTarget = ''
+
 if (explicitVersion) {
   newVersion = explicitVersion
 } else if (firstRelease) {
   newVersion = '0.0.1'
   console.log('\n🎉 首次发布，版本自动设为 0.0.1')
 } else {
-  newVersion = await promptVersion(currentVersion)
+  const versionChoice = await promptVersion(currentVersion)
+
+  if (versionChoice === RETAG_SENTINEL) {
+    // retag 模式：从现有 tag 中选择
+    const existingTagList = allTagsRaw.split('\n').filter(Boolean).reverse()
+    retagTarget = await select({
+      message: '选择要重新发布的 tag',
+      choices: existingTagList.map((t) => ({ name: t, value: t })),
+    })
+    isRetag = true
+    newVersion = currentVersion // 版本不变
+  } else {
+    newVersion = versionChoice
+  }
+}
+
+if (isRetag) {
+  // retag 流程：直接删除并重推选中的 tag
+  console.log('\n─────────────────────────────────')
+  console.log(`  模式     : retag`)
+  console.log(`  Tag      : ${retagTarget}`)
+  console.log(`  分支     : ${execSync('git branch --show-current', { encoding: 'utf-8' }).trim()}`)
+  console.log('─────────────────────────────────\n')
+
+  const confirmed = await confirm({ message: `删除并重新推送 ${retagTarget}？`, default: false })
+  if (!confirmed) {
+    console.log('🚫 已取消')
+    process.exit(0)
+  }
+
+  run(`git tag -d ${retagTarget}`)
+  run(`git push origin :refs/tags/${retagTarget}`)
+  run(`git tag ${retagTarget}`)
+  run(`git push origin ${retagTarget}`)
+
+  console.log(`\n✅ Tag ${retagTarget} 已重新推送，GitHub Actions 将自动开始构建和发布`)
+  console.log(`   查看进度：https://github.com/$(git remote get-url origin | sed 's/.*github.com[:/]//;s/.git$//')/actions`)
+  process.exit(0)
 }
 
 // 3. 写回 package.json（仅当版本有变化时）
@@ -147,11 +191,23 @@ if (isCanary) {
   tag = `v${newVersion}`
 }
 
-// 5. 检查 tag 是否已存在
+// 5. 检查 tag 是否已存在，支持 retag
 const existingTags = execSync('git tag --list', { encoding: 'utf-8' })
-if (existingTags.split('\n').includes(tag)) {
-  console.error(`❌ Tag ${tag} 已存在，请选择更高版本后重试`)
-  process.exit(1)
+const tagExists = existingTags.split('\n').includes(tag)
+
+if (tagExists) {
+  console.log(`\n⚠️  Tag ${tag} 已存在`)
+  const shouldRetag = await confirm({
+    message: `删除本地和远程的 ${tag} 并重新发布？`,
+    default: false,
+  })
+  if (!shouldRetag) {
+    console.log('🚫 已取消')
+    process.exit(0)
+  }
+  run(`git tag -d ${tag}`)
+  run(`git push origin :refs/tags/${tag}`)
+  console.log(`\n🗑  已删除 Tag ${tag}，准备重新发布...\n`)
 }
 
 // 打印发布信息并确认
