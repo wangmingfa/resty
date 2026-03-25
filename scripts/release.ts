@@ -114,7 +114,20 @@ const isCanary = args.includes('--canary') || args.includes('--stable')
 
 // 2. 选择版本号
 const currentVersion = getCurrentVersion()
-const newVersion = explicitVersion ?? await promptVersion(currentVersion)
+
+// 检查是否存在任何已发布的 tag
+const hasAnyTag = execSync('git tag --list', { encoding: 'utf-8' }).trim().length > 0
+const firstRelease = !hasAnyTag
+
+let newVersion: string
+if (explicitVersion) {
+  newVersion = explicitVersion
+} else if (firstRelease) {
+  newVersion = '0.0.1'
+  console.log('\n🎉 首次发布，版本自动设为 0.0.1')
+} else {
+  newVersion = await promptVersion(currentVersion)
+}
 
 // 3. 写回 package.json（仅当版本有变化时）
 if (newVersion !== currentVersion) {
