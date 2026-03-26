@@ -7,7 +7,7 @@
 		"start": "vite build && electrobun dev",
 		"dev": "electrobun dev --watch",
 		"dev:hmr": "concurrently \"bun run hmr\" \"bun run start\"",
-		"hmr": "vite --port 5173",
+		"hmr": "vite",
 		"clean:build": "rm -rf artifacts build dist",
 		"build:stable": "bun run clean:build && vite build && electrobun build --env=stable",
 		"build:canary": "bun run clean:build && vite build && electrobun build --env=canary",

@@ -6,6 +6,11 @@ import { DEV_SERVER_PORT } from './src/shared/serverConfig'
 export default defineConfig({
   plugins: [vue()],
   root: 'src/mainview',
+  publicDir: 'public',
+  define: {
+    // 构建时注入平台常量，避免在渲染进程中依赖 navigator.userAgent
+    __IS_WINDOWS__: JSON.stringify(process.platform === 'win32'),
+  },
   build: {
     outDir: '../../dist',
     emptyOutDir: true,

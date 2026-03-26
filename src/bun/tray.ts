@@ -16,6 +16,9 @@ const ACTION_TRIGGER_BREAK = 'trigger-break'
 const ACTION_OPEN_SETTINGS = 'open-settings'
 const ACTION_QUIT = 'quit'
 
+// 平台判断
+const isWindows = process.platform === 'win32'
+
 interface TrayActions {
   onStart: () => void
   onPause: () => void
@@ -39,7 +42,15 @@ export class RestyTray {
 
   constructor(actions: TrayActions) {
     this.actions = actions
-    this.tray = new Tray({ title: 'Resty' })
+    this.tray = new Tray({
+      title: isWindows ? '' : 'Resty',
+      // Windows 托盘必须提供图标，否则不显示
+      // 使用 icon.iconset 里的 16x16 图标
+      // Windows 托盘使用 ICO 格式（含多尺寸），确保正确显示
+      image: isWindows ? 'views://mainview/tray-icon.ico' : '',
+      width: 32,
+      height: 32,
+    })
     this.updateMenu()
 
     // 监听托盘菜单点击事件
@@ -80,14 +91,15 @@ export class RestyTray {
     const timeStr = formatTime(state.remainingSeconds)
 
     // 更新标题（每秒都可以变）
+    // macOS：显示在菜单栏；Windows：托盘不显示文字标题，setTitle 为空即可
     if (state.phase === 'working') {
-      this.tray.setTitle(timeStr)
+      this.tray.setTitle(isWindows ? '' : timeStr)
     } else if (state.phase === 'resting') {
-      this.tray.setTitle(`😴 ${timeStr}`)
+      this.tray.setTitle(isWindows ? '' : `😴 ${timeStr}`)
     } else if (state.phase === 'paused') {
-      this.tray.setTitle(`⏸ ${timeStr}`)
+      this.tray.setTitle(isWindows ? '' : `⏸ ${timeStr}`)
     } else {
-      this.tray.setTitle('Resty')
+      this.tray.setTitle(isWindows ? '' : 'Resty')
     }
 
     // 只有阶段真正切换时才重建菜单

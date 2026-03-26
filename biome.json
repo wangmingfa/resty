@@ -9,6 +9,9 @@
     "includes": [
       "src/**/*.ts",
       "src/**/*.js",
+      "src/**/*.vue",
+      "src/**/*.css",
+      "src/**/*.less",
       "*.config.ts",
       "*.config.js",
       "!dist",
@@ -27,6 +30,14 @@
     "indentWidth": 2,
     "lineWidth": 120,
     "lineEnding": "lf"
+  },
+  "css": {
+    "formatter": {
+      "enabled": true,
+      "indentStyle": "space",
+      "indentWidth": 2,
+      "lineWidth": 120
+    }
   },
   "javascript": {
     "formatter": {

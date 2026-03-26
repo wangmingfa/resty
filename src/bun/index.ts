@@ -51,16 +51,22 @@ const rpc = createRpc(
   windowHolder,
 )
 
+// 平台判断
+const isWindows = process.platform === 'win32'
+
 // 创建主窗口
-// titleBarStyle: 'hidden' 隐藏系统标题栏（使用自定义交通灯）
-// titleBarStyle: 'default' 显示系统原生标题栏
+// titleBarStyle: 'hidden'      - 隐藏系统标题栏（完全自定义）
+// titleBarStyle: 'hiddenInset' - macOS：透明标题栏，内嵌原生红绿灯
+// titleBarStyle: 'default'     - 显示系统原生标题栏
 const MAIN_WINDOW_WIDTH = 420
 const MAIN_WINDOW_HEIGHT = 600
 const mainWindow = new BrowserWindow({
   title: 'Resty',
   url,
   rpc,
-  titleBarStyle: 'hiddenInset',
+  // Windows 使用 'hidden'（完全自定义标题栏，实现沉浸式效果）
+  // macOS 使用 'hiddenInset'（保留原生红绿灯按钮区域）
+  titleBarStyle: isWindows ? 'hidden' : 'hiddenInset',
   frame: {
     width: MAIN_WINDOW_WIDTH,
     height: MAIN_WINDOW_HEIGHT,
@@ -74,6 +80,8 @@ const mainWindow = new BrowserWindow({
     Miniaturizable: false,
     UtilityWindow: true,
   },
+  // 注意：Windows 下不要开启 transparent，否则 DWM 会禁用系统圆角
+  // 沉浸式效果通过 titleBarStyle: 'hidden' + 自定义标题栏实现
 })
 mainWindow.setAlwaysOnTop(true)
 Utils.setDockIconVisible(false)
@@ -149,30 +157,12 @@ function openBreakWindows(): void {
         Resizable: false, // 禁止缩放
 
         FullSizeContentView: true,
-
-        // 下面这些建议开启
-        // NonactivatingPanel: false,
-        // UtilityWindow: false,
-        // HUDWindow: false,
       },
     })
     win.setFullScreen(true)
     win.setVisibleOnAllWorkspaces(true)
     win.setAlwaysOnTop(true)
     breakWindowHolder.current = win
-
-    // setTimeout(() => {
-    //   win.show()
-    // }, 100)
-
-    // 不用 setFullScreen（会导致 webview 不 resize）
-    // 直接用屏幕坐标 + alwaysOnTop 覆盖全屏
-    /*setTimeout(() => {
-      win.setAlwaysOnTop(true);
-      win.setVisibleOnAllWorkspaces(true);
-      // 确保 frame 覆盖整个显示器（包含 menubar 区域）
-      win.setFrame(x, y - 30, width, height + 30);
-    }, 300);*/
 
     breakWindows.push(win)
     breakRpcs.push(breakRpc)
@@ -206,7 +196,6 @@ const tray = new RestyTray({
     timer.triggerBreak()
   },
   onOpenSettings: () => {
-    // windowHolder.current?.show()
     setMainWindowVisibility(true)
     sendNavigate(rpc, '/settings')
   },
@@ -244,46 +233,36 @@ if (settings.autoStartWork) {
   timer.start()
 }
 
-// 设置标准 macOS 应用菜单，确保 Cmd+Q 走 Electrobun 的 before-quit 流程
-ApplicationMenu.setApplicationMenu([
-  {
-    label: 'Resty',
-    submenu: [
-      { role: 'about' },
-      { type: 'separator' },
-      { role: 'hide' },
-      { role: 'hideOthers' },
-      { role: 'showAll' },
-      { type: 'separator' },
-      {
-        label: '退出 Resty',
-        action: 'app-quit',
-        accelerator: 'Cmd+Q',
-      },
-    ],
-  },
-  // {
-  //   label: '编辑',
-  //   submenu: [
-  //     { role: 'undo' },
-  //     { role: 'redo' },
-  //     { type: 'separator' },
-  //     { role: 'cut' },
-  //     { role: 'copy' },
-  //     { role: 'paste' },
-  //     { role: 'selectAll' },
-  //   ],
-  // },
-])
+// macOS 专属：设置标准应用菜单，确保 Cmd+Q 走 Electrobun 的 before-quit 流程
+if (!isWindows) {
+  ApplicationMenu.setApplicationMenu([
+    {
+      label: 'Resty',
+      submenu: [
+        { role: 'about' },
+        { type: 'separator' },
+        { role: 'hide' },
+        { role: 'hideOthers' },
+        { role: 'showAll' },
+        { type: 'separator' },
+        {
+          label: '退出 Resty',
+          action: 'app-quit',
+          accelerator: 'Cmd+Q',
+        },
+      ],
+    },
+  ])
 
-// 监听应用菜单的退出动作
-ApplicationMenu.on('application-menu-clicked', (e: unknown) => {
-  const event = e as { data: { action: string } }
-  if (event.data.action === 'app-quit') {
-    timer.stop()
-    process.exit(0)
-  }
-})
+  // 监听应用菜单的退出动作
+  ApplicationMenu.on('application-menu-clicked', (e: unknown) => {
+    const event = e as { data: { action: string } }
+    if (event.data.action === 'app-quit') {
+      timer.stop()
+      process.exit(0)
+    }
+  })
+}
 
 // 监听应用退出事件（托盘退出、程序内退出等）
 Electrobun.events.on('before-quit', (_e: { response: { allow: boolean } }) => {
